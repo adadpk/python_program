@@ -38,54 +38,62 @@ def handel_name(image_name):
     :param image_name: image name
     :return: image token time
     """
-    if '-' == image_name[4] and '-' == image_name[7]:
-        # handle format 1: 2013-07-15_59
-        date_list = image_name.split('-')
-        date_year = date_list[0]
-        date_month = date_list[1]
-        date_day = date_list[2][:2]
-        image_date = date_year + ':' + date_month + ':' + date_day + ' 08:20:00'
-        return image_date
-    elif '_' == image_name[3] and '_' == image_name[12]:
-        # handle format 2: IMG_20140423_140222_8
-        date_year = image_name[4:8]
-        date_month = image_name[8:10]
-        date_day = image_name[10:12]
-        image_date = date_year + ':' + date_month + ':' + date_day + ' 08:20:00'
-        return image_date
-    elif '20' == image_name[:2] and image_name[4:6] in ['01', '02', '03', '04', '05', '06', '07', '08', '09',
-                                                        '10', '11', '12'] and int(image_name[6:8]) <= 31:
-        # handle format 3: 20121117_115926_588 or 20xxxxxxx
-        date_year = image_name[:4]
-        date_month = image_name[4:6]
-        date_day = image_name[6:8]
-        image_date = date_year + ':' + date_month + ':' + date_day + ' 08:20:00'
-        return image_date
-    else:
-        try:
-            res = re.search(r'\d+', image_name).group()
-            if '20' == res[:2] and res[4:6] in ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10',
-                                                '11', '12'] and int(res[6:8]) <= 31:
-                date_year = res[:4]
-                date_month = res[4:6]
-                date_day = res[6:8]
-                image_date = date_year + ':' + date_month + ':' + date_day + ' 08:20:00'
-                return image_date
-            else:
+    try:
+        if '-' == image_name[4] and '-' == image_name[7]:
+            # handle format 1: 2013-07-15_59
+            date_list = image_name.split('-')
+            date_year = date_list[0]
+            date_month = date_list[1]
+            date_day = date_list[2][:2]
+            image_date = date_year + ':' + date_month + ':' + date_day + ' 08:20:00'
+            return image_date
+        elif '_' == image_name[3] and '_' == image_name[12]:
+            # handle format 2: IMG_20140423_140222_8
+            date_year = image_name[4:8]
+            date_month = image_name[8:10]
+            date_day = image_name[10:12]
+            image_date = date_year + ':' + date_month + ':' + date_day + ' 08:20:00'
+            return image_date
+        elif '20' == image_name[:2] and image_name[4:6] in ['01', '02', '03', '04', '05', '06', '07', '08', '09',
+                                                            '10', '11', '12'] and int(image_name[6:8]) <= 31:
+            # handle format 3: 20121117_115926_588 or 20xxxxxxx
+            date_year = image_name[:4]
+            date_month = image_name[4:6]
+            date_day = image_name[6:8]
+            image_date = date_year + ':' + date_month + ':' + date_day + ' 08:20:00'
+            return image_date
+        else:
+            try:
+                res = re.search(r'\d+', image_name).group()
+                if '20' == res[:2] and res[4:6] in ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10',
+                                                    '11', '12'] and int(res[6:8]) <= 31:
+                    date_year = res[:4]
+                    date_month = res[4:6]
+                    date_day = res[6:8]
+                    image_date = date_year + ':' + date_month + ':' + date_day + ' 08:20:00'
+                    return image_date
+                else:
+                    return ''
+            except:
                 return ''
-        except:
-            return ''
+    except:
+        return ''
 
 
 def load_image_info(image_name):
-    image_info_dict = piexif.load(os.path.join(in_pwd, image_name))
-    if {} == image_info_dict['Exif']:
+    try:
+        image_info_dict = piexif.load(os.path.join(in_pwd, image_name))
+    except:
         return handel_name(image_name)
     else:
-        if 36867 in image_info_dict['Exif'].keys() and 36868 in image_info_dict['Exif'].keys():
-            return 'copy'
-        else:
+        if {} == image_info_dict['Exif']:
             return handel_name(image_name)
+        else:
+            # print('keys: ', image_info_dict['Exif'].keys())
+            if 36867 in image_info_dict['Exif'].keys() and 36868 in image_info_dict['Exif'].keys():
+                return 'copy'
+            else:
+                return handel_name(image_name)
 
 
 def copy_file(image_name, info=False):
@@ -104,6 +112,49 @@ def copy_file(image_name, info=False):
     else:
         shutil.copyfile(os.path.join(in_pwd, image_name), os.path.join(new_pwd, image_name))
         print('copy file no info ' + image_name)
+
+
+def main(image_time=None):
+    # global image_time
+    if not os.path.exists(out_pwd):
+        os.mkdir(out_pwd)
+    # image_time = '2019:04:04 04:04:04'
+    name_list = image_list()
+    if image_time:
+        for i in name_list:
+            if 'jpeg' == imghdr.what(os.path.join(in_pwd, i)):
+                set_date(i, im_time=image_time)
+            else:
+                copy_file(i)
+    elif default_image_time:
+        # setting default image time
+        for i in name_list:
+            if 'jpeg' == imghdr.what(os.path.join(in_pwd, i)):
+                return_image_time = load_image_info(i)
+                if '' != return_image_time and 'copy' != return_image_time:
+                    print('set image: ', return_image_time)
+                    set_date(i, im_time=return_image_time)
+                elif 'copy' == return_image_time:
+                    copy_file(i, info=True)
+                else:
+                    # handle_no_date_image(i, out_pwd, in_pwd)
+                    print('set default image: ', return_image_time)
+                    set_date(i, im_time=default_image_time)
+            else:
+                copy_file(i)
+    else:
+        # not setting default image time
+        for i in name_list:
+            if 'jpeg' == imghdr.what(os.path.join(in_pwd, i)):
+                return_image_time = load_image_info(i)
+                if '' != return_image_time and 'copy' != return_image_time:
+                    set_date(i, im_time=return_image_time)
+                elif 'copy' == return_image_time:
+                    copy_file(i, info=True)
+                else:
+                    copy_file(i)
+            else:
+                copy_file(i)
 
 
 def time_handle(input_time):
@@ -150,40 +201,10 @@ def time_handle(input_time):
 
 
 def is_folder(folder_path):
-    return os.path.isdir(folder_path)
-
-
-def file_handle(name_list):
-    for i in name_list:
-        if 'jpeg' == imghdr.what(os.path.join(in_pwd, i)):
-            return_image_time = load_image_info(i)
-            if '' != return_image_time and 'copy' != return_image_time:
-                set_date(i, im_time=return_image_time)
-            elif 'copy' == return_image_time:
-                copy_file(i, info=True)
-            else:
-                set_date(i, im_time=default_image_time)
-        else:
-            copy_file(i)
-
-
-def main(image_time=None):
-    if not os.path.exists(out_pwd):
-        os.mkdir(out_pwd)
-    # image_time = '2019:06:06 06:06:06'
-    name_list = image_list()
-    if image_time:
-        for i in name_list:
-            if 'jpeg' == imghdr.what(os.path.join(in_pwd, i)):
-                set_date(i, im_time=image_time)
-            else:
-                copy_file(i)
-    elif default_image_time:
-        # setting default image time
-        file_handle(name_list)
+    if folder_path.endswith('/') and os.path.isdir(folder_path):
+        return True
     else:
-        # not setting default image time
-        file_handle(name_list)
+        return False
 
 
 if __name__ == '__main__':
@@ -197,19 +218,15 @@ if __name__ == '__main__':
     print('================菜单=====================\n')
     print('只支持JPEG文件的时间设置\n')
     print('普通手机照片以jpg和jpeg结尾一般都支持\n')
-    print('输出文件夹在原文件夹，名称为原文件夹_new\n')
     print('================功能列表=====================')
     print('1.直接设置时间')
     print('2.根据照片名字设置时间')
-
     com = input('请输入序号：')
     while com not in ['1', '2']:
         com = input('请输入正确的序号：')
-
     in_pwd = input('请输入要处理的图片绝对路径/格式(/folder1/image/) ').strip()
     while not is_folder(in_pwd):
         in_pwd = input('路径输入错误，请重新输入/格式(/folder1/image/) ').strip()
-
     default_image_time = None
     out_pwd = os.path.dirname(in_pwd) + '_new/'
 
@@ -230,3 +247,5 @@ if __name__ == '__main__':
             main()
         else:
             main()
+
+
